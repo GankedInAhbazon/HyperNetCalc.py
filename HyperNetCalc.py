@@ -16,7 +16,7 @@ def parse_isk(value: str) -> int:
         return int(float(value[:-1]) * multipliers[value[-1]])
     return int(float(value))
 
-# Modal 2 - Rebate info (exactly as originally provided)
+# Modal 2 - Rebate info (original labels)
 class RebateModal(ui.Modal, title="HyperNet Rebate Info"):
     rebate_node_count = ui.TextInput(label="Rebate Node Count", required=True, placeholder="e.g. 2")
     rebate_percentage = ui.TextInput(label="Rebate Percentage", required=True, placeholder="e.g. 15")
@@ -28,7 +28,6 @@ class RebateModal(ui.Modal, title="HyperNet Rebate Info"):
             return
 
         try:
-            # Parse inputs
             list_price = parse_isk(basic_data["list_price"])
             node_count = int(basic_data["node_count"])
             hypercore_price = parse_isk(basic_data["hypercore_price"])
@@ -37,7 +36,6 @@ class RebateModal(ui.Modal, title="HyperNet Rebate Info"):
             rebate_node_count = int(self.rebate_node_count.value)
             rebate_percentage = float(self.rebate_percentage.value) / 100.0
 
-            # Calculate rebate ISK (rebate_node_count * rebate_percentage * list_price)
             rebate_isk = rebate_node_count * rebate_percentage * list_price
 
             total_revenue = list_price * selfbuy_count
@@ -54,11 +52,20 @@ class RebateModal(ui.Modal, title="HyperNet Rebate Info"):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error during calculation: {e}", ephemeral=True)
 
-# Modal 1 - Basic info (exactly as originally provided)
+# Button to trigger rebate modal
+class RebateButton(ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)  # Optional timeout
+
+    @ui.button(label="Enter Rebate Info", style=discord.ButtonStyle.primary)
+    async def rebate_button(self, interaction: Interaction, button: ui.Button):
+        await interaction.response.send_modal(RebateModal())
+
+# Modal 1 - Basic info (original labels)
 class BasicModal(ui.Modal, title="HyperNet Basic Info"):
     list_price = ui.TextInput(label="Hypernet List Price (ISK)", required=True, placeholder="e.g. 200b")
     node_count = ui.TextInput(label="Node Count", required=True, placeholder="e.g. 8")
-    hypercore_price = ui.TextInput(label="HyperCore Price (ISK)", required=True, placeholder="e.g. 1.5m")
+    hypercore_price = ui.TextInput(label="HyperCore Price (ISK)", required=True, placeholder="e.g. 300k")
     selfbuy_count = ui.TextInput(label="SelfBuy Count", required=True, placeholder="e.g. 3")
     ship_cost = ui.TextInput(label="Ship Cost (ISK)", required=True, placeholder="e.g. 300b")
 
@@ -72,19 +79,12 @@ class BasicModal(ui.Modal, title="HyperNet Basic Info"):
             "ship_cost": self.ship_cost.value,
         }
 
-        # Acknowledge and send rebate modal *correctly* (fix: use followup response and wait)
+        # Send confirmation message WITH a button to open rebate modal
         await interaction.response.send_message(
-            "✅ Got your basic info. Now please enter your rebate info...",
-            ephemeral=True
+            "✅ Got your basic info. Click the button below to enter your rebate info.",
+            ephemeral=True,
+            view=RebateButton()
         )
-
-        # Wait briefly before sending the next modal to avoid interaction conflicts
-        # This is the proper way to send a modal after an initial response
-        # Use a separate task to send the modal follow-up
-        async def send_rebate_modal():
-            await interaction.followup.send_modal(RebateModal())
-
-        bot.loop.create_task(send_rebate_modal())
 
 # Bot ready event
 @bot.event
