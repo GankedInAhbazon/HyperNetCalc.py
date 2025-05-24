@@ -82,7 +82,7 @@ class BasicModal(ui.Modal, title="HyperNet Basic Info"):
 async def on_ready():
     bot.cached_basic_data = {}
 
-    guild = discord.Object(id=YOUR_GUILD_ID)  # Replace YOUR_GUILD_ID with your actual guild/server ID as an int
+    guild = discord.Object(id=690233573852184764)  # Replace YOUR_GUILD_ID with your actual guild/server ID as an int
     try:
         synced = await bot.tree.sync(guild=guild)
         print(f"✅ Synced {len(synced)} command(s) to guild {guild.id}")
