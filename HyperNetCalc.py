@@ -91,4 +91,4 @@ async def hypernet(ctx):
         await ctx.send(f"❌ Error: {e}")
 
 # Replace 'YOUR_BOT_TOKEN' with your actual bot token
-bot.run('YOUR_BOT_TOKEN')
+bot.run('DISCORD_TOKEN')
