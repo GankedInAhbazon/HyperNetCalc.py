@@ -9,46 +9,66 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Helper to parse 200b, 300m, etc.
-def parse_isk(value: str) -> int:
+def parse_isk(value: str) -> float:
     value = value.strip().lower().replace(',', '')
     multipliers = {'b': 1_000_000_000, 'm': 1_000_000, 'k': 1_000}
-    if value[-1] in multipliers:
-        return int(float(value[:-1]) * multipliers[value[-1]])
-    return int(float(value))
+    if value and value[-1] in multipliers:
+        return float(value[:-1]) * multipliers[value[-1]]
+    return float(value)
 
-# Modal 2 - Rebate info (original labels)
+# Format function like PS Format block, to "X.XXb"
+def format_isk_b(value: float) -> str:
+    return f"{value / 1e9:.2f}b"
+
+# Modal 2 - Rebate info
 class RebateModal(ui.Modal, title="HyperNet Rebate Info"):
     rebate_node_count = ui.TextInput(label="Rebate Node Count", required=True, placeholder="e.g. 2")
     rebate_percentage = ui.TextInput(label="Rebate Percentage", required=True, placeholder="e.g. 15")
+    hold_ship = ui.TextInput(label="Do you hold the ship? (yes/no)", required=True, placeholder="yes or no")
 
     async def on_submit(self, interaction: Interaction):
         basic_data = interaction.client.cached_basic_data.get(interaction.user.id)
         if not basic_data:
-            await interaction.response.send_message("❌ Error: Basic info missing. Try again.", ephemeral=True)
+            await interaction.response.send_message("❌ Error: Basic info missing. Please run /hypernetcalc again.", ephemeral=True)
             return
 
         try:
-            list_price = parse_isk(basic_data["list_price"])
-            node_count = int(basic_data["node_count"])
-            hypercore_price = parse_isk(basic_data["hypercore_price"])
-            selfbuy_count = int(basic_data["selfbuy_count"])
-            ship_cost = parse_isk(basic_data["ship_cost"])
-            rebate_node_count = int(self.rebate_node_count.value)
-            rebate_percentage = float(self.rebate_percentage.value) / 100.0
+            # Parse all inputs
+            HypernetList = parse_isk(basic_data["list_price"])
+            NumberOfNodes = int(basic_data["node_count"])
+            HyperCoreMarketPrice = parse_isk(basic_data["hypercore_price"])
+            SelfBuy = int(basic_data["selfbuy_count"])
+            ShipCost = parse_isk(basic_data["ship_cost"])
 
-            rebate_isk = rebate_node_count * rebate_percentage * list_price
+            RebateNodeCount = int(self.rebate_node_count.value)
+            RebatePercentage = float(self.rebate_percentage.value)
+            HoldInput = self.hold_ship.value.strip().lower()
+            Hold = HoldInput == "yes"
 
-            total_revenue = list_price * selfbuy_count
-            total_cost = (hypercore_price * node_count) + ship_cost - rebate_isk
-            profit = total_revenue - total_cost
+            # Constants & calculations from PS
+            NodePrice = HypernetList / NumberOfNodes
+            SelfBuyCost = SelfBuy * NodePrice
+            HyperCoreRatio = 12_753_734
+            NumberOfCores = HypernetList / HyperCoreRatio
+            HyperCoreCost = NumberOfCores * HyperCoreMarketPrice
+            HyperNetFee = HypernetList * 0.05
+            RebatePayout = NodePrice * RebateNodeCount * (RebatePercentage / 100)
 
-            await interaction.response.send_message(
-                f"📊 **HyperNet Profit Calculation**\n\n"
-                f"**Revenue:** {total_revenue:,} ISK\n"
-                f"**Cost:** {total_cost:,} ISK\n"
-                f"**Profit:** {profit:,} ISK",
-                ephemeral=True
-            )
+            # Profit calculations
+            TotalWithHoldAndRebate = HypernetList - HyperNetFee - HyperCoreCost - SelfBuyCost - RebatePayout
+            TotalWithHoldNoRebate = HypernetList - HyperNetFee - HyperCoreCost - SelfBuyCost
+            TotalNoHold = HypernetList - HyperNetFee - HyperCoreCost - SelfBuyCost - ShipCost
+
+            # Compose message based on Hold and rebate presence
+            if not Hold:
+                message = f"**No hold:** Profit is {format_isk_b(TotalNoHold)}"
+            elif RebateNodeCount == 0 or RebatePercentage == 0:
+                message = f"**On hold with no rebate:** Profit is {format_isk_b(TotalWithHoldNoRebate)}"
+            else:
+                message = f"**On hold with rebate:** Profit is {format_isk_b(TotalWithHoldAndRebate)}"
+
+            await interaction.response.send_message(f"📊 **HyperNet Profit Calculation**\n\n{message}", ephemeral=True)
+
         except Exception as e:
             await interaction.response.send_message(f"❌ Error during calculation: {e}", ephemeral=True)
 
@@ -61,7 +81,7 @@ class RebateButton(ui.View):
     async def rebate_button(self, interaction: Interaction, button: ui.Button):
         await interaction.response.send_modal(RebateModal())
 
-# Modal 1 - Basic info (original labels)
+# Modal 1 - Basic info
 class BasicModal(ui.Modal, title="HyperNet Basic Info"):
     list_price = ui.TextInput(label="Hypernet List Price (ISK)", required=True, placeholder="e.g. 200b")
     node_count = ui.TextInput(label="Node Count", required=True, placeholder="e.g. 8")
