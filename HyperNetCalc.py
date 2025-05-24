@@ -100,3 +100,16 @@ async def rebate(interaction: discord.Interaction):
 
 # Run bot
 bot.run(os.getenv("DISCORD_TOKEN"))
+
+class TestModal(ui.Modal, title="Test Modal"):
+    test_input = ui.TextInput(label="Test", required=True, placeholder="Type something")
+
+@bot.tree.command(name="testmodal", description="Test modal display")
+async def testmodal(interaction: discord.Interaction):
+    print(f"/testmodal triggered by {interaction.user}")
+    await interaction.response.send_modal(TestModal())
+
+@bot.tree.command(name="rebate", description="Enter rebate info")
+async def rebate(interaction: discord.Interaction):
+    print(f"/rebate command triggered by {interaction.user} (ID: {interaction.user.id})")
+    await interaction.response.send_modal(RebateModal())
