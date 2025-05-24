@@ -9,15 +9,15 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Helper to parse 200b, 300m, etc.
-def parse_isk(value: str) -> float:
+def parse_isk(value: str) -> int:
     value = value.strip().lower().replace(',', '')
-    multipliers = {'b': 1e9, 'm': 1e6, 'k': 1e3}
+    multipliers = {'b': 1_000_000_000, 'm': 1_000_000, 'k': 1_000}
     if value[-1] in multipliers:
-        return float(value[:-1]) * multipliers[value[-1]]
-    return float(value)
+        return int(float(value[:-1]) * multipliers[value[-1]])
+    return int(float(value))
 
-# Modal 2 - Rebate & hold info
-class RebateModal(ui.Modal, title="Rebate & Hold Info"):
+# Modal 2 - Rebate info (rebate nodes, rebate %, hold yes/no)
+class RebateModal(ui.Modal, title="HyperNet Rebate Info"):
     rebate_nodes = ui.TextInput(label="Rebate Node Count", required=True, placeholder="e.g. 4")
     rebate_percent = ui.TextInput(label="Rebate Percentage", required=True, placeholder="e.g. 50")
     hold_ship = ui.TextInput(label="Hold the Ship? (yes/no)", required=True, placeholder="yes or no")
@@ -29,7 +29,7 @@ class RebateModal(ui.Modal, title="Rebate & Hold Info"):
             return
 
         try:
-            # Parse all inputs
+            # Parse inputs
             list_price = parse_isk(basic_data["list_price"])
             node_count = int(basic_data["node_count"])
             hypercore_price = parse_isk(basic_data["hypercore_price"])
@@ -39,9 +39,10 @@ class RebateModal(ui.Modal, title="Rebate & Hold Info"):
             rebate_percent = float(self.rebate_percent.value)
             hold = self.hold_ship.value.strip().lower() == "yes"
 
+            # Calculations
             node_price = list_price / node_count
             selfbuy_cost = selfbuy_count * node_price
-            hypercore_ratio = 12753734
+            hypercore_ratio = 12753734  # constant from original script
             num_cores = list_price / hypercore_ratio
             hypercore_cost = num_cores * hypercore_price
             hypernet_fee = list_price * 0.05
@@ -77,7 +78,7 @@ class RebateModal(ui.Modal, title="Rebate & Hold Info"):
 class BasicModal(ui.Modal, title="HyperNet Basic Info"):
     list_price = ui.TextInput(label="Hypernet List Price (ISK)", required=True, placeholder="e.g. 200b")
     node_count = ui.TextInput(label="Node Count", required=True, placeholder="e.g. 8")
-    hypercore_price = ui.TextInput(label="HyperCore Price (ISK)", required=True, placeholder="e.g. 305k")
+    hypercore_price = ui.TextInput(label="HyperCore Price (ISK)", required=True, placeholder="e.g. 1.5m")
     selfbuy_count = ui.TextInput(label="SelfBuy Count", required=True, placeholder="e.g. 3")
     ship_cost = ui.TextInput(label="Ship Cost (ISK)", required=True, placeholder="e.g. 300b")
 
@@ -91,8 +92,11 @@ class BasicModal(ui.Modal, title="HyperNet Basic Info"):
             "ship_cost": self.ship_cost.value,
         }
 
-        # FIXED: Defer first, then send follow-up modal
-        await interaction.response.defer(ephemeral=True)
+        # Acknowledge and prompt second modal
+        await interaction.response.send_message(
+            "✅ Got your basic info. Now please enter your rebate info...",
+            ephemeral=True
+        )
         await interaction.followup.send_modal(RebateModal())
 
 # Bot ready
@@ -100,16 +104,27 @@ class BasicModal(ui.Modal, title="HyperNet Basic Info"):
 async def on_ready():
     bot.cached_basic_data = {}
     try:
-        synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} command(s)")
+        GUILD_ID = int(os.getenv("DISCORD_GUILD_ID", "0"))
+        if GUILD_ID:
+            guild = discord.Object(id=GUILD_ID)
+            await bot.tree.sync(guild=guild)
+            print(f"✅ Synced commands to guild {GUILD_ID}")
+        else:
+            synced = await bot.tree.sync()
+            print(f"✅ Globally synced {len(synced)} command(s)")
     except Exception as e:
         print(f"❌ Sync failed: {e}")
     print(f"🤖 Logged in as {bot.user} (ID: {bot.user.id})")
 
-# Slash command
+# Slash command - HyperNet Calculation
 @bot.tree.command(name="hypernetcalc", description="Calculate HyperNet profits")
 async def hypernetcalc(interaction: discord.Interaction):
     await interaction.response.send_modal(BasicModal())
+
+# Slash command - Rebate-only modal
+@bot.tree.command(name="rebate", description="Enter rebate info")
+async def rebate(interaction: discord.Interaction):
+    await interaction.response.send_modal(RebateModal())
 
 # Run bot
 bot.run(os.getenv("DISCORD_TOKEN"))
