@@ -71,8 +71,11 @@ class BasicModal(ui.Modal, title="HyperNet Basic Info"):
             "ship_cost": self.ship_cost.value,
         }
 
-        # Instead of sending a message + followup modal, just send the next modal
-        await interaction.response.send_modal(RebateModal())
+        # Minimal fix: Instead of sending a modal (not allowed), send a message prompting next step
+        await interaction.response.send_message(
+            "✅ Got your basic info. Now please run `/rebate` command to enter your rebate info.",
+            ephemeral=True
+        )
 
 # Bot ready
 @bot.event
@@ -85,10 +88,15 @@ async def on_ready():
         print(f"❌ Sync failed: {e}")
     print(f"🤖 Logged in as {bot.user} (ID: {bot.user.id})")
 
-# Slash command
+# Slash command to start basic info modal
 @bot.tree.command(name="hypernetcalc", description="Calculate HyperNet profits")
 async def hypernetcalc(interaction: discord.Interaction):
     await interaction.response.send_modal(BasicModal())
+
+# New slash command to trigger rebate modal
+@bot.tree.command(name="rebate", description="Enter rebate info")
+async def rebate(interaction: discord.Interaction):
+    await interaction.response.send_modal(RebateModal())
 
 # Run bot
 bot.run(os.getenv("DISCORD_TOKEN"))
