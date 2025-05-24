@@ -1,4 +1,5 @@
 import discord
+import os
 from discord.ext import commands
 
 intents = discord.Intents.default()
@@ -91,4 +92,4 @@ async def hypernet(ctx):
         await ctx.send(f"❌ Error: {e}")
 
 # Replace 'YOUR_BOT_TOKEN' with your actual bot token
-bot.run('DISCORD_TOKEN')
+bot.run(os.getenv("DISCORD_TOKEN"))
