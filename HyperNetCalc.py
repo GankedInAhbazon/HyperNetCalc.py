@@ -81,11 +81,14 @@ class BasicModal(ui.Modal, title="HyperNet Basic Info"):
 @bot.event
 async def on_ready():
     bot.cached_basic_data = {}
+
+    guild = discord.Object(id=YOUR_GUILD_ID)  # Replace YOUR_GUILD_ID with your actual guild/server ID as an int
     try:
-        synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} command(s)")
+        synced = await bot.tree.sync(guild=guild)
+        print(f"✅ Synced {len(synced)} command(s) to guild {guild.id}")
     except Exception as e:
         print(f"❌ Sync failed: {e}")
+
     print(f"🤖 Logged in as {bot.user} (ID: {bot.user.id})")
 
 # Slash command for initial modal
