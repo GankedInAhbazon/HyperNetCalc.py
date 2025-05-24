@@ -91,8 +91,9 @@ class BasicModal(ui.Modal, title="HyperNet Basic Info"):
             "ship_cost": self.ship_cost.value,
         }
 
-        # Send follow-up modal after acknowledging
-        await interaction.response.send_modal(RebateModal())
+        # FIXED: Defer first, then send follow-up modal
+        await interaction.response.defer(ephemeral=True)
+        await interaction.followup.send_modal(RebateModal())
 
 # Bot ready
 @bot.event
