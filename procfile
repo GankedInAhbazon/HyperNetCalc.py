@@ -1,1 +1,1 @@
-worker: python hypernet_bot.py
+worker: python HyperNetCalc.py
