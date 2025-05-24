@@ -1,64 +1,84 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+from discord.ui import Modal, TextInput
 import os
 
 intents = discord.Intents.default()
-intents.message_content = True  # Optional, for logging messages
-
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Modal definition
-class HypernetModal(discord.ui.Modal, title="HyperNet Profit Calculator"):
-    list_price = discord.ui.TextInput(label="List Price (e.g. 1.5b)", required=True)
-    node_count = discord.ui.TextInput(label="Node Count (e.g. 512)", required=True)
-    core_price = discord.ui.TextInput(label="HyperCore Price (e.g. 300k)", required=True)
-    selfbuy = discord.ui.TextInput(label="Selfbuy Nodes (e.g. 10)", required=True)
-    hold = discord.ui.TextInput(label="Hold? (yes or no)", required=True)
+# Temporary user input storage
+bot.user_inputs = {}
+
+# ----------------- MODAL 1 -----------------
+class HypernetBasicModal(Modal, title="HyperNet Basic Info"):
+    list_price = TextInput(label="Hypernet List Price (ISK)", required=True, placeholder="e.g. 200000000")
+    node_count = TextInput(label="Node Count", required=True, placeholder="e.g. 8")
+    hypercore_price = TextInput(label="HyperCore Price (ISK)", required=True, placeholder="e.g. 1500000")
+    selfbuy_count = TextInput(label="SelfBuy Count", required=True, placeholder="e.g. 3")
+    ship_cost = TextInput(label="Ship Cost (ISK)", required=True, placeholder="e.g. 300000000")
 
     async def on_submit(self, interaction: discord.Interaction):
-        try:
-            def parse_number(value, name):
-                value = value.strip().lower()
-                import re
-                match = re.match(r'^([\d.]+)([bmk]?)$', value)
-                if not match:
-                    raise ValueError(f"❌ Invalid format for '{name}': {value}")
-                number = float(match.group(1))
-                suffix = match.group(2)
-                return number * {'b': 1e9, 'm': 1e6, 'k': 1e3}.get(suffix, 1)
+        bot.user_inputs[interaction.user.id] = {
+            "list_price": int(self.list_price.value),
+            "node_count": int(self.node_count.value),
+            "hypercore_price": int(self.hypercore_price.value),
+            "selfbuy_count": int(self.selfbuy_count.value),
+            "ship_cost": int(self.ship_cost.value),
+        }
+        await interaction.response.send_modal(HypernetRebateModal())
 
-            hl = parse_number(self.list_price.value, "List Price")
-            nc = int(self.node_count.value.strip())
-            hc = parse_number(self.core_price.value, "HyperCore Price")
-            sb = int(self.selfbuy.value.strip())
-            hold = self.hold.value.strip().lower() == "yes"
+# ----------------- MODAL 2 -----------------
+class HypernetRebateModal(Modal, title="Rebate Information"):
+    rebate_nodes = TextInput(label="Rebated Nodes", required=True, placeholder="e.g. 4")
+    rebate_percent = TextInput(label="Rebate Percentage", required=True, placeholder="e.g. 5 (for 5%)")
 
-            node_price = hl / nc
-            selfbuy_cost = sb * node_price
-            core_count = hl / 12753734
-            core_cost = core_count * hc
-            fee = hl * 0.05
+    async def on_submit(self, interaction: discord.Interaction):
+        user_data = bot.user_inputs.get(interaction.user.id, {})
+        if not user_data:
+            await interaction.response.send_message("⚠️ Missing data from the first modal.", ephemeral=True)
+            return
 
-            profit = hl - fee - core_cost - selfbuy_cost
-            profit_b = f"{profit / 1e9:.2f}b"
-            label = "✅ Hold" if hold else "❌ No Hold"
+        user_data["rebate_nodes"] = int(self.rebate_nodes.value)
+        user_data["rebate_percent"] = float(self.rebate_percent.value)
 
-            await interaction.response.send_message(f"**{label}** Profit: `{profit_b}`", ephemeral=True)
+        # Perform calculation
+        total_cores = user_data["node_count"]
+        selfbuy = user_data["selfbuy_count"]
+        cost_per_core = user_data["hypercore_price"]
+        total_cost = total_cores * cost_per_core + user_data["ship_cost"]
+        total_return = selfbuy * user_data["list_price"]
+        rebate_amount = (user_data["rebate_nodes"] * user_data["rebate_percent"] / 100) * cost_per_core
+        profit = total_return + rebate_amount - total_cost
 
-        except Exception as e:
-            await interaction.response.send_message(f"⚠️ Error: {e}", ephemeral=True)
+        result = (
+            f"📊 **HyperNet Profit Calculation**\n"
+            f"> **List Price:** {user_data['list_price']:,} ISK\n"
+            f"> **Nodes:** {total_cores}\n"
+            f"> **SelfBuy Count:** {selfbuy}\n"
+            f"> **HyperCore Price:** {cost_per_core:,} ISK\n"
+            f"> **Ship Cost:** {user_data['ship_cost']:,} ISK\n"
+            f"> **Rebate Nodes:** {user_data['rebate_nodes']}\n"
+            f"> **Rebate %:** {user_data['rebate_percent']}%\n\n"
+            f"💰 **Estimated Profit:** {int(profit):,} ISK"
+        )
 
-# Slash command
+        await interaction.response.send_message(result, ephemeral=True)
+
+# ----------------- SLASH COMMAND -----------------
 @bot.tree.command(name="hypernetcalc", description="Calculate HyperNet profits")
 async def hypernetcalc(interaction: discord.Interaction):
-    await interaction.response.send_modal(HypernetModal())
+    await interaction.response.send_modal(HypernetBasicModal())
 
-# Sync slash commands on startup
+# ----------------- READY EVENT -----------------
 @bot.event
 async def on_ready():
     await bot.tree.sync()
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
 
-# Run the bot
-bot.run(os.getenv("DISCORD_TOKEN"))
+# ----------------- MAIN -----------------
+if __name__ == "__main__":
+    token = os.getenv("DISCORD_TOKEN")
+    if not token:
+        raise RuntimeError("❌ DISCORD_TOKEN environment variable not set.")
+    bot.run(token)
