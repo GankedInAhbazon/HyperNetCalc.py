@@ -71,9 +71,9 @@ class BasicModal(ui.Modal, title="HyperNet Basic Info"):
             "ship_cost": self.ship_cost.value,
         }
 
-        # Minimal fix: Instead of sending a modal (not allowed), send a message prompting next step
+        # Respond with message only — do NOT chain modals here
         await interaction.response.send_message(
-            "✅ Got your basic info. Now please run `/rebate` command to enter your rebate info.",
+            "✅ Got your basic info. Now please use the `/rebate` command to enter your rebate info.",
             ephemeral=True
         )
 
@@ -88,28 +88,15 @@ async def on_ready():
         print(f"❌ Sync failed: {e}")
     print(f"🤖 Logged in as {bot.user} (ID: {bot.user.id})")
 
-# Slash command to start basic info modal
+# Slash command for initial modal
 @bot.tree.command(name="hypernetcalc", description="Calculate HyperNet profits")
 async def hypernetcalc(interaction: discord.Interaction):
     await interaction.response.send_modal(BasicModal())
 
-# New slash command to trigger rebate modal
+# Slash command for rebate modal
 @bot.tree.command(name="rebate", description="Enter rebate info")
 async def rebate(interaction: discord.Interaction):
     await interaction.response.send_modal(RebateModal())
 
 # Run bot
 bot.run(os.getenv("DISCORD_TOKEN"))
-
-class TestModal(ui.Modal, title="Test Modal"):
-    test_input = ui.TextInput(label="Test", required=True, placeholder="Type something")
-
-@bot.tree.command(name="testmodal", description="Test modal display")
-async def testmodal(interaction: discord.Interaction):
-    print(f"/testmodal triggered by {interaction.user}")
-    await interaction.response.send_modal(TestModal())
-
-@bot.tree.command(name="rebate", description="Enter rebate info")
-async def rebate(interaction: discord.Interaction):
-    print(f"/rebate command triggered by {interaction.user} (ID: {interaction.user.id})")
-    await interaction.response.send_modal(RebateModal())
