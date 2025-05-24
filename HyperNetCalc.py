@@ -71,14 +71,8 @@ class BasicModal(ui.Modal, title="HyperNet Basic Info"):
             "ship_cost": self.ship_cost.value,
         }
 
-        # Acknowledge and prompt second modal
-        await interaction.response.send_message(
-            "✅ Got your basic info. Now please enter your rebate info...",
-            ephemeral=True
-        )
-
-        # Follow up with second modal
-        await interaction.followup.send_modal(RebateModal())
+        # Instead of sending a message + followup modal, just send the next modal
+        await interaction.response.send_modal(RebateModal())
 
 # Bot ready
 @bot.event
