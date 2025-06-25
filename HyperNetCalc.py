@@ -2,6 +2,9 @@ import os
 import discord
 from discord.ext import commands
 from discord import app_commands, Interaction, ui
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Intents & bot setup
 intents = discord.Intents.default()
