@@ -111,7 +111,7 @@ class BasicModal(ui.Modal, title="HyperNet Basic Info"):
 async def on_ready():
     bot.cached_basic_data = {}
     try:
-        GUILD_ID = int(os.getenv("1248261270327791616", "0"))  # Set env var or replace manually
+        GUILD_ID = int(os.getenv("GUILD_ID", "0"))  # Set env var or replace manually
         if GUILD_ID:
             guild = discord.Object(id=GUILD_ID)
             await bot.tree.sync(guild=guild)
@@ -134,4 +134,4 @@ async def rebate(interaction: discord.Interaction):
     await interaction.response.send_modal(RebateModal())
 
 # Run bot
-bot.run(os.getenv("MTM3NTg0NDE1OTUzMzA4ODgxOQ.Gh-RBk.cbwpbQC-VKrQn3Kevf3U4umGeMQpwdLk-Q7ttk"))
+bot.run(os.getenv("DISCORD_TOKEN"))
